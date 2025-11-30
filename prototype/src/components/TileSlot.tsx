@@ -1,14 +1,15 @@
 import { motion } from 'framer-motion';
-import type { TileSlot as TileSlotType, ArcGeometry } from '../types/game';
+import type { TileSlot as TileSlotType, ArcGeometry, Player } from '../types/game';
 import { Tile } from './Tile';
 
 interface TileSlotProps {
   slot: TileSlotType;
   geometry: ArcGeometry;
+  players: Player[];
   onClick: () => void;
 }
 
-export function TileSlot({ slot, geometry, onClick }: TileSlotProps) {
+export function TileSlot({ slot, geometry, players, onClick }: TileSlotProps) {
   return (
     <g>
       {/* Background/empty slot area - always rendered for click target */}
@@ -33,10 +34,9 @@ export function TileSlot({ slot, geometry, onClick }: TileSlotProps) {
       )}
       
       {/* Tile if slot is filled */}
-      {slot.filled && slot.tileType && (
-        <Tile type={slot.tileType} path={geometry.path} />
+      {slot.filled && slot.tile && (
+        <Tile tile={slot.tile} path={geometry.path} players={players} />
       )}
     </g>
   );
 }
-

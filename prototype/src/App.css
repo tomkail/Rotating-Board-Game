@@ -97,3 +97,259 @@ main {
   font-family: 'JetBrains Mono', 'SF Mono', monospace;
   font-size: 0.875rem;
 }
+
+.new-game-btn {
+  padding: 0.5rem 1rem;
+  background: transparent;
+  border: 1px solid #475569;
+  border-radius: 6px;
+  color: #94a3b8;
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.new-game-btn:hover {
+  background: #334155;
+  border-color: #64748b;
+  color: #e2e8f0;
+}
+
+/* Game Setup Styles */
+.game-setup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 3rem;
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid #334155;
+  border-radius: 16px;
+  backdrop-filter: blur(8px);
+}
+
+.game-setup h2 {
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  margin: 0;
+}
+
+.game-setup p {
+  color: #64748b;
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.player-count-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+}
+
+.player-count-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border: 2px solid #334155;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.player-count-btn:hover {
+  border-color: var(--player-color);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--player-color) 30%, transparent);
+}
+
+.player-count-btn .count {
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--player-color);
+}
+
+.player-count-btn .label {
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-size: 0.625rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Board Layout with Palette */
+.board-layout {
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+}
+
+/* Tile Palette Styles */
+.tile-palette {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid #334155;
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+  width: 220px;
+}
+
+.palette-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.palette-header h3 {
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  margin: 0;
+}
+
+.deselect-btn {
+  padding: 0.25rem 0.5rem;
+  background: transparent;
+  border: 1px solid #475569;
+  border-radius: 4px;
+  color: #64748b;
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-size: 0.625rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.deselect-btn:hover {
+  background: #334155;
+  color: #e2e8f0;
+}
+
+.tile-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.tile-option {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border: 2px solid #334155;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tile-option:hover {
+  border-color: #475569;
+}
+
+.tile-option.selected {
+  border-color: var(--tile-color);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--tile-color) 25%, transparent);
+}
+
+.tile-option-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tile-icon {
+  font-size: 1.125rem;
+  line-height: 1;
+}
+
+.tile-name {
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.tile-description {
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-size: 0.625rem;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.tile-value-control {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.value-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: #334155;
+  border: 1px solid #475569;
+  border-radius: 4px;
+  color: #94a3b8;
+  font-size: 0.625rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.value-btn:hover:not(:disabled) {
+  background: #475569;
+  color: #e2e8f0;
+}
+
+.value-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.value-display {
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  min-width: 1.5rem;
+  text-align: center;
+}
+
+.tile-owner-control {
+  display: flex;
+  justify-content: center;
+  gap: 0.375rem;
+}
+
+.owner-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+
+.owner-dot:hover {
+  transform: scale(1.15);
+}
+
+.owner-dot.selected {
+  border-color: #fff;
+  box-shadow: 0 0 8px currentColor;
+}

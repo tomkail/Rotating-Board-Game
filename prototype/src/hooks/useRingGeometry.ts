@@ -82,8 +82,8 @@ export function useRingGeometry(config: RingGeometryConfig): ArcGeometry[] {
     const geometries: ArcGeometry[] = [];
 
     for (let i = 0; i < slotCount; i++) {
-      // Start from top (-90 degrees) and go clockwise
-      const baseAngle = -90 + i * slotAngle;
+      // Offset by half a slot so tile centers align with compass points (N, E, S, W)
+      const baseAngle = -90 - slotAngle / 2 + i * slotAngle;
       const startAngle = baseAngle + gapAngle / 2;
       const endAngle = baseAngle + slotAngle - gapAngle / 2;
       const midAngle = (startAngle + endAngle) / 2;
