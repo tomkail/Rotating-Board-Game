@@ -1,20 +1,20 @@
 .app {
   min-height: 100vh;
   display: flex;
-  flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
+  justify-content: center;
   padding: 2rem;
   background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
 }
 
-header {
+.game-header {
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
 }
 
-header h1 {
+.game-header h1 {
   font-family: 'JetBrains Mono', 'SF Mono', monospace;
-  font-size: 2.5rem;
+  font-size: 2rem;
   font-weight: 700;
   color: #e2e8f0;
   margin: 0 0 0.5rem 0;
@@ -23,15 +23,14 @@ header h1 {
 
 .subtitle {
   color: #64748b;
-  font-size: 1rem;
+  font-size: 0.875rem;
   margin: 0;
 }
 
-main {
-  flex: 1;
+.game-column {
   display: flex;
-  align-items: flex-start;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
 }
 
 .board-container {
@@ -43,6 +42,8 @@ main {
 
 .board-svg {
   filter: drop-shadow(0 25px 50px rgba(0, 0, 0, 0.5));
+  max-width: 100%;
+  height: auto;
 }
 
 .rotation-controls {
@@ -188,7 +189,7 @@ main {
 .board-layout {
   display: flex;
   gap: 2rem;
-  align-items: flex-start;
+  align-items: stretch;
 }
 
 /* Tile Palette Styles */
@@ -352,4 +353,154 @@ main {
 .owner-dot.selected {
   border-color: #fff;
   box-shadow: 0 0 8px currentColor;
+}
+
+/* Disabled Rotation Controls */
+.rotation-controls.disabled {
+  opacity: 0.5;
+}
+
+.rotate-btn.disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.rotate-btn.disabled:hover {
+  background: linear-gradient(135deg, #334155 0%, #1e293b 100%);
+  border-color: #475569;
+  box-shadow: none;
+}
+
+/* Action Panel Styles */
+.action-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid #334155;
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+  width: 240px;
+  align-self: flex-start;
+}
+
+.current-turn {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border-radius: 8px;
+}
+
+.turn-indicator {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  box-shadow: 0 0 12px currentColor;
+}
+
+.turn-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.turn-label {
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-size: 0.625rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.player-name {
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.actions-header h4 {
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #94a3b8;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.actions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border: 1px solid #334155;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.action-btn:hover:not(.disabled) {
+  background: linear-gradient(135deg, #334155 0%, #1e293b 100%);
+  border-color: #475569;
+}
+
+.action-btn.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.action-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.action-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.action-name {
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.action-desc {
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-size: 0.625rem;
+  color: #64748b;
+}
+
+.selected-tile-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(74, 222, 128, 0.1);
+  border: 1px solid rgba(74, 222, 128, 0.3);
+  border-radius: 6px;
+}
+
+.hint-icon {
+  font-size: 1rem;
+}
+
+.selected-tile-hint span:last-child {
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-size: 0.625rem;
+  color: #4ade80;
 }

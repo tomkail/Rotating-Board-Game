@@ -1,15 +1,19 @@
 import { motion } from 'framer-motion';
-import type { TileSlot as TileSlotType, ArcGeometry, Player } from '../types/game';
+import type { TileSlot as TileSlotType, ArcGeometry, Player, TileData } from '../types/game';
 import { Tile } from './Tile';
 
 interface TileSlotProps {
   slot: TileSlotType;
   geometry: ArcGeometry;
   players: Player[];
+  innerRadius: number;
+  outerRadius: number;
+  rotationOffset: number;
   onClick: () => void;
+  onHover?: (tile: TileData | null) => void;
 }
 
-export function TileSlot({ slot, geometry, players, onClick }: TileSlotProps) {
+export function TileSlot({ slot, geometry, players, innerRadius, outerRadius, rotationOffset, onClick, onHover }: TileSlotProps) {
   return (
     <g>
       {/* Background/empty slot area - always rendered for click target */}
@@ -35,7 +39,16 @@ export function TileSlot({ slot, geometry, players, onClick }: TileSlotProps) {
       
       {/* Tile if slot is filled */}
       {slot.filled && slot.tile && (
-        <Tile tile={slot.tile} path={geometry.path} players={players} />
+        <Tile
+          tile={slot.tile}
+          path={geometry.path}
+          players={players}
+          geometry={geometry}
+          innerRadius={innerRadius}
+          outerRadius={outerRadius}
+          rotationOffset={rotationOffset}
+          onHover={onHover}
+        />
       )}
     </g>
   );

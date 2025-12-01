@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import type { TileSlot as TileSlotType, ArcGeometry, Player } from '../types/game';
+import type { TileSlot as TileSlotType, ArcGeometry, Player, TileData } from '../types/game';
 import { TileSlot } from './TileSlot';
 
 interface RingProps {
@@ -9,7 +9,10 @@ interface RingProps {
   centerX: number;
   centerY: number;
   players: Player[];
+  innerRadius: number;
+  outerRadius: number;
   onSlotClick: (slotIndex: number) => void;
+  onTileHover?: (tile: TileData | null) => void;
 }
 
 export function Ring({
@@ -19,7 +22,10 @@ export function Ring({
   centerX,
   centerY,
   players,
-  onSlotClick
+  innerRadius,
+  outerRadius,
+  onSlotClick,
+  onTileHover
 }: RingProps) {
   return (
     <motion.g
@@ -40,7 +46,11 @@ export function Ring({
           slot={slot}
           geometry={geometries[index]}
           players={players}
+          innerRadius={innerRadius}
+          outerRadius={outerRadius}
+          rotationOffset={rotationOffset}
           onClick={() => onSlotClick(index)}
+          onHover={onTileHover}
         />
       ))}
     </motion.g>

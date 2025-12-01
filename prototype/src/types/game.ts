@@ -2,12 +2,17 @@
 
 export interface Player {
   id: number;
-  slotIndex: number;
+  slotIndex: number; // Which tile slot the player is aligned with
   color: string;
 }
 
-// Tile type definitions
-export type TileTypeId = 
+export interface TileSlot {
+  id: number;
+  filled: boolean;
+  tile?: TileData; // Changed from tileType to tile
+}
+
+export type TileTypeId =
   | 'resource'
   | 'victory'
   | 'movement'
@@ -16,30 +21,10 @@ export type TileTypeId =
   | 'block'
   | 'transfer';
 
-export interface TileTypeConfig {
-  id: TileTypeId;
-  name: string;
-  description: string;
-  icon: string;
-  color: string;
-  hasValue?: boolean;      // Can have a numeric value (points, movement amount)
-  minValue?: number;
-  maxValue?: number;
-  defaultValue?: number;
-  hasOwner?: boolean;      // Can be owned by a player (colored variants)
-}
-
-// The actual tile data placed on the board
 export interface TileData {
   typeId: TileTypeId;
-  value?: number;          // For tiles with numeric values
-  ownerId?: number;        // For tiles with player ownership
-}
-
-export interface TileSlot {
-  id: number;
-  filled: boolean;
-  tile?: TileData;
+  value?: number; // For resource, victory, movement
+  ownerId?: number; // For skip, block, transfer
 }
 
 export interface BoardState {
@@ -58,6 +43,31 @@ export interface ArcGeometry {
 }
 
 export type RotationDirection = 'clockwise' | 'counterclockwise';
+
+export type GamePhase = 'setup' | 'playing';
+
+export type ActionType = 'place_tile' | 'rotate_board' | 'end_turn';
+
+export interface GameAction {
+  type: ActionType;
+  name: string;
+  description: string;
+  icon: string;
+  enabled: boolean;
+}
+
+export interface TileTypeConfig {
+  id: TileTypeId;
+  name: string;
+  description: string;
+  icon: string;
+  color: string;
+  hasValue?: boolean;      // Can have a numeric value (points, movement amount)
+  minValue?: number;
+  maxValue?: number;
+  defaultValue?: number;
+  hasOwner?: boolean;      // Can be owned by a player (colored variants)
+}
 
 // Tile type definitions
 export const TILE_TYPES: TileTypeConfig[] = [

@@ -1,14 +1,20 @@
 import { motion } from 'framer-motion';
-import type { TileData, Player } from '../types/game';
+import type { TileData, Player, ArcGeometry } from '../types/game';
 import { getTileTypeConfig } from '../types/game';
+import { getPositionOnRing } from '../hooks/useRingGeometry';
 
 interface TileProps {
   tile: TileData;
   path: string;
   players: Player[];
+  geometry: ArcGeometry;
+  innerRadius: number;
+  outerRadius: number;
+  rotationOffset: number;
+  onHover?: (tile: TileData | null) => void;
 }
 
-export function Tile({ tile, path, players }: TileProps) {
+export function Tile({ tile, path, players, geometry, innerRadius, outerRadius, rotationOffset, onHover }: TileProps) {
   const config = getTileTypeConfig(tile.typeId);
   
   // Determine tile color - use owner color if applicable
@@ -20,8 +26,19 @@ export function Tile({ tile, path, players }: TileProps) {
     }
   }
 
-  // Darken the color for stroke
-  const strokeColor = fillColor;
+  // Calculate label position at center of arc
+  const labelRadius = (innerRadius + outerRadius) / 2;
+  const labelPos = getPositionOnRing(
+    geometry.centerX,
+    geometry.centerY,
+    labelRadius,
+    geometry.midAngle
+  );
+
+  // Build the label text - icon + value or just icon
+  const labelText = config.hasValue && tile.value !== undefined
+    ? `${config.icon}${tile.value}`
+    : config.icon;
 
   return (
     <motion.g
@@ -32,16 +49,36 @@ export function Tile({ tile, path, players }: TileProps) {
         stiffness: 400,
         damping: 25
       }}
+      onMouseEnter={() => onHover?.(tile)}
+      onMouseLeave={() => onHover?.(null)}
+      style={{ cursor: 'default' }}
     >
+      {/* Tile background */}
       <motion.path
         d={path}
         fill={fillColor}
-        stroke={strokeColor}
+        stroke={fillColor}
         strokeWidth={2}
-        style={{ pointerEvents: 'none' }}
         fillOpacity={0.85}
+        whileHover={{ fillOpacity: 1 }}
       />
-      {/* Icon and value overlay would need positioning - simplified for now */}
+
+      {/* Label text - counter-rotate so it stays upright */}
+      <g transform={`translate(${labelPos.x}, ${labelPos.y}) rotate(${-rotationOffset})`}>
+        <text
+          x={0}
+          y={0}
+          textAnchor="middle"
+          dominantBaseline="central"
+          fill="#0f172a"
+          fontSize={20}
+          fontWeight={700}
+          fontFamily="JetBrains Mono, monospace"
+          style={{ pointerEvents: 'none', userSelect: 'none' }}
+        >
+          {labelText}
+        </text>
+      </g>
     </motion.g>
   );
 }
