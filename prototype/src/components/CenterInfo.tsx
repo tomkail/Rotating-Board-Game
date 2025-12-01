@@ -55,6 +55,7 @@ export function CenterInfo({ hoveredTile, players, centerX, centerY, radius }: C
     config.name,
     config.description,
     config.hasValue && hoveredTile.value !== undefined ? `Value: ${hoveredTile.value}` : null,
+    hoveredTile.typeId === 'movement' && hoveredTile.direction ? `Direction: ${hoveredTile.direction === 'left' ? 'Left (◀)' : 'Right (▶)'}` : null,
     ownerName ? `Owner: ${ownerName}` : null
   ].filter(Boolean);
 

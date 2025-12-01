@@ -23,9 +23,12 @@ export function PlayerResources({
   centerY,
   radius
 }: PlayerResourcesProps) {
-  // Calculate the angle for this player's slot position (same as player token)
+  // Calculate the angle for this player's slot position
+  // Offset slightly from token angle to avoid overlap
   const slotAngle = 360 / slotCount;
-  const angle = -90 + player.slotIndex * slotAngle;
+  const tokenAngle = -90 + player.slotIndex * slotAngle;
+  // Offset by 5 degrees to shift panel away from token
+  const angle = tokenAngle + 5;
   
   const position = getPositionOnRing(centerX, centerY, radius, angle);
 

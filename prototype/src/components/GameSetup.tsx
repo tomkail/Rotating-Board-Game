@@ -1,7 +1,8 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 
 interface GameSetupProps {
-  onStartGame: (playerCount: number) => void;
+  onStartGame: (playerCount: number, fillWithBlanks: boolean) => void;
 }
 
 const PLAYER_COLORS = [
@@ -16,6 +17,8 @@ const PLAYER_COLORS = [
 ];
 
 export function GameSetup({ onStartGame }: GameSetupProps) {
+  const [fillWithBlanks, setFillWithBlanks] = useState(false);
+
   return (
     <motion.div
       className="game-setup"
@@ -31,7 +34,7 @@ export function GameSetup({ onStartGame }: GameSetupProps) {
           <motion.button
             key={count}
             className="player-count-btn"
-            onClick={() => onStartGame(count)}
+            onClick={() => onStartGame(count, fillWithBlanks)}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             style={{
@@ -43,9 +46,19 @@ export function GameSetup({ onStartGame }: GameSetupProps) {
           </motion.button>
         ))}
       </div>
+
+      <div className="game-setup-options">
+        <label className="checkbox-label">
+          <input
+            type="checkbox"
+            checked={fillWithBlanks}
+            onChange={(e) => setFillWithBlanks(e.target.checked)}
+          />
+          <span>Fill board with blank tiles</span>
+        </label>
+      </div>
     </motion.div>
   );
 }
 
 export { PLAYER_COLORS };
-

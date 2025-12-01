@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import type { TileData, TileTypeConfig, Player } from '../types/game';
+import type { TileData, TileTypeConfig, Player, MovementDirection } from '../types/game';
 import { TILE_TYPES } from '../types/game';
 
 interface TilePaletteProps {
@@ -22,12 +22,25 @@ function TileOption({ config, players, isSelected, currentTile, onSelect }: Tile
   const [ownerId, setOwnerId] = useState<number | undefined>(
     config.hasOwner && players.length > 0 ? players[0].id : undefined
   );
+  const [direction, setDirection] = useState<MovementDirection>(
+    currentTile?.direction ?? 'right'
+  );
+
+  // Sync direction when currentTile changes
+  useEffect(() => {
+    if (currentTile?.direction) {
+      setDirection(currentTile.direction);
+    } else if (config.hasDirection && !currentTile?.direction) {
+      setDirection('right');
+    }
+  }, [currentTile, config.hasDirection]);
 
   const handleSelect = () => {
     onSelect({
       typeId: config.id,
       value: config.hasValue ? value : undefined,
-      ownerId: config.hasOwner ? ownerId : undefined
+      ownerId: config.hasOwner ? ownerId : undefined,
+      direction: config.hasDirection ? direction : undefined
     });
   };
 
@@ -38,7 +51,21 @@ function TileOption({ config, players, isSelected, currentTile, onSelect }: Tile
       onSelect({
         typeId: config.id,
         value: newValue,
-        ownerId: config.hasOwner ? ownerId : undefined
+        ownerId: config.hasOwner ? ownerId : undefined,
+        direction: config.hasDirection ? direction : undefined
+      });
+    }
+  };
+
+  const toggleDirection = () => {
+    const newDirection: MovementDirection = direction === 'left' ? 'right' : 'left';
+    setDirection(newDirection);
+    if (isSelected) {
+      onSelect({
+        typeId: config.id,
+        value: config.hasValue ? value : undefined,
+        ownerId: config.hasOwner ? ownerId : undefined,
+        direction: config.hasDirection ? newDirection : undefined
       });
     }
   };
@@ -49,7 +76,8 @@ function TileOption({ config, players, isSelected, currentTile, onSelect }: Tile
       onSelect({
         typeId: config.id,
         value: config.hasValue ? value : undefined,
-        ownerId: playerId
+        ownerId: playerId,
+        direction: config.hasDirection ? direction : undefined
       });
     }
   };
@@ -91,6 +119,30 @@ function TileOption({ config, players, isSelected, currentTile, onSelect }: Tile
             disabled={value >= (config.maxValue ?? 5)}
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
+          >
+            ▶
+          </motion.button>
+        </div>
+      )}
+
+      {config.hasDirection && (
+        <div className="tile-direction-control" onClick={e => e.stopPropagation()}>
+          <motion.button
+            className={`direction-btn ${direction === 'left' ? 'selected' : ''}`}
+            onClick={toggleDirection}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            title="Left"
+          >
+            ◀
+          </motion.button>
+          <span className="direction-label">Direction</span>
+          <motion.button
+            className={`direction-btn ${direction === 'right' ? 'selected' : ''}`}
+            onClick={toggleDirection}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            title="Right"
           >
             ▶
           </motion.button>

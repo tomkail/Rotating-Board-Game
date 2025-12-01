@@ -4,16 +4,31 @@ import { Tile } from './Tile';
 
 interface TileSlotProps {
   slot: TileSlotType;
+  slotIndex: number;
   geometry: ArcGeometry;
   players: Player[];
   innerRadius: number;
   outerRadius: number;
   rotationOffset: number;
   onClick: () => void;
+  onGroupSelect?: (slotIndex: number) => void;
   onHover?: (tile: TileData | null) => void;
+  isInSelectedGroup?: boolean;
 }
 
-export function TileSlot({ slot, geometry, players, innerRadius, outerRadius, rotationOffset, onClick, onHover }: TileSlotProps) {
+export function TileSlot({ 
+  slot, 
+  slotIndex,
+  geometry, 
+  players, 
+  innerRadius, 
+  outerRadius, 
+  rotationOffset, 
+  onClick, 
+  onGroupSelect,
+  onHover,
+  isInSelectedGroup = false
+}: TileSlotProps) {
   return (
     <g>
       {/* Background/empty slot area - always rendered for click target */}
@@ -37,6 +52,21 @@ export function TileSlot({ slot, geometry, players, innerRadius, outerRadius, ro
         />
       )}
       
+      {/* Highlight for selected group */}
+      {isInSelectedGroup && (
+        <motion.path
+          d={geometry.path}
+          fill="none"
+          stroke="#60a5fa"
+          strokeWidth={4}
+          opacity={0.5}
+          style={{
+            pointerEvents: 'none',
+            transformOrigin: `${geometry.centerX}px ${geometry.centerY}px`
+          }}
+        />
+      )}
+      
       {/* Tile if slot is filled */}
       {slot.filled && slot.tile && (
         <Tile
@@ -48,6 +78,7 @@ export function TileSlot({ slot, geometry, players, innerRadius, outerRadius, ro
           outerRadius={outerRadius}
           rotationOffset={rotationOffset}
           onHover={onHover}
+          onGroupSelect={onGroupSelect ? () => onGroupSelect(slotIndex) : undefined}
         />
       )}
     </g>

@@ -12,7 +12,9 @@ interface RingProps {
   innerRadius: number;
   outerRadius: number;
   onSlotClick: (slotIndex: number) => void;
+  onGroupSelect?: (slotIndex: number) => void;
   onTileHover?: (tile: TileData | null) => void;
+  selectedGroup?: Set<number> | null;
 }
 
 export function Ring({
@@ -25,7 +27,9 @@ export function Ring({
   innerRadius,
   outerRadius,
   onSlotClick,
-  onTileHover
+  onGroupSelect,
+  onTileHover,
+  selectedGroup
 }: RingProps) {
   return (
     <motion.g
@@ -44,13 +48,16 @@ export function Ring({
         <TileSlot
           key={slot.id}
           slot={slot}
+          slotIndex={index}
           geometry={geometries[index]}
           players={players}
           innerRadius={innerRadius}
           outerRadius={outerRadius}
           rotationOffset={rotationOffset}
           onClick={() => onSlotClick(index)}
+          onGroupSelect={onGroupSelect}
           onHover={onTileHover}
+          isInSelectedGroup={selectedGroup?.has(index) ?? false}
         />
       ))}
     </motion.g>

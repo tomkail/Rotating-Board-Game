@@ -19,12 +19,16 @@ export type TileTypeId =
   | 'swap'
   | 'skip'
   | 'block'
-  | 'transfer';
+  | 'transfer'
+  | 'blank';
+
+export type MovementDirection = 'left' | 'right';
 
 export interface TileData {
   typeId: TileTypeId;
   value?: number; // For resource, victory, movement
   ownerId?: number; // For skip, block, transfer
+  direction?: MovementDirection; // For movement tiles
 }
 
 export interface BoardState {
@@ -67,6 +71,7 @@ export interface TileTypeConfig {
   maxValue?: number;
   defaultValue?: number;
   hasOwner?: boolean;      // Can be owned by a player (colored variants)
+  hasDirection?: boolean;  // Can have a direction (left/right) for movement tiles
 }
 
 // Tile type definitions
@@ -102,7 +107,8 @@ export const TILE_TYPES: TileTypeConfig[] = [
     hasValue: true,
     minValue: 1,
     maxValue: 4,
-    defaultValue: 1
+    defaultValue: 1,
+    hasDirection: true
   },
   {
     id: 'swap',
@@ -134,6 +140,13 @@ export const TILE_TYPES: TileTypeConfig[] = [
     icon: '⬇',
     color: '#f97316',
     hasOwner: true
+  },
+  {
+    id: 'blank',
+    name: 'Blank',
+    description: 'Empty tile with no effect',
+    icon: '□',
+    color: '#64748b'
   }
 ];
 

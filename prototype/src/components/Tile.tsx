@@ -12,9 +12,10 @@ interface TileProps {
   outerRadius: number;
   rotationOffset: number;
   onHover?: (tile: TileData | null) => void;
+  onGroupSelect?: () => void;
 }
 
-export function Tile({ tile, path, players, geometry, innerRadius, outerRadius, rotationOffset, onHover }: TileProps) {
+export function Tile({ tile, path, players, geometry, innerRadius, outerRadius, rotationOffset, onHover, onGroupSelect }: TileProps) {
   const config = getTileTypeConfig(tile.typeId);
   
   // Determine tile color - use owner color if applicable
@@ -36,9 +37,16 @@ export function Tile({ tile, path, players, geometry, innerRadius, outerRadius, 
   );
 
   // Build the label text - icon + value or just icon
-  const labelText = config.hasValue && tile.value !== undefined
-    ? `${config.icon}${tile.value}`
-    : config.icon;
+  // For movement tiles, show direction arrow instead of generic arrow
+  let labelText: string;
+  if (tile.typeId === 'movement' && tile.value !== undefined) {
+    const directionIcon = tile.direction === 'left' ? '←' : '→';
+    labelText = `${directionIcon}${tile.value}`;
+  } else if (config.hasValue && tile.value !== undefined) {
+    labelText = `${config.icon}${tile.value}`;
+  } else {
+    labelText = config.icon;
+  }
 
   return (
     <motion.g
@@ -51,7 +59,7 @@ export function Tile({ tile, path, players, geometry, innerRadius, outerRadius, 
       }}
       onMouseEnter={() => onHover?.(tile)}
       onMouseLeave={() => onHover?.(null)}
-      style={{ cursor: 'default' }}
+      style={{ cursor: onGroupSelect ? 'pointer' : 'default' }}
     >
       {/* Tile background */}
       <motion.path
@@ -61,6 +69,7 @@ export function Tile({ tile, path, players, geometry, innerRadius, outerRadius, 
         strokeWidth={2}
         fillOpacity={0.85}
         whileHover={{ fillOpacity: 1 }}
+        onClick={onGroupSelect}
       />
 
       {/* Label text - counter-rotate so it stays upright */}

@@ -144,6 +144,36 @@
   font-size: 0.875rem;
 }
 
+.game-setup-options {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  color: #e2e8f0;
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-size: 0.875rem;
+  user-select: none;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #3b82f6;
+}
+
+.checkbox-label:hover {
+  color: #cbd5e1;
+}
+
 .player-count-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -330,6 +360,47 @@
   text-align: center;
 }
 
+.tile-direction-control {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.direction-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: #334155;
+  border: 2px solid #475569;
+  border-radius: 4px;
+  color: #94a3b8;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.direction-btn:hover {
+  background: #475569;
+  color: #e2e8f0;
+}
+
+.direction-btn.selected {
+  background: #60a5fa;
+  border-color: #60a5fa;
+  color: #fff;
+}
+
+.direction-label {
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-size: 0.75rem;
+  color: #64748b;
+  min-width: 3rem;
+  text-align: center;
+}
+
 .tile-owner-control {
   display: flex;
   justify-content: center;
@@ -503,4 +574,187 @@
   font-family: 'JetBrains Mono', 'SF Mono', monospace;
   font-size: 0.625rem;
   color: #4ade80;
+}
+
+/* Save Manager Styles */
+.save-manager {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid #334155;
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+  width: 220px;
+  max-height: 600px;
+}
+
+.save-manager-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.save-manager-header h4 {
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  margin: 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #334155;
+}
+
+.save-btn {
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border: 2px solid #334155;
+  border-radius: 8px;
+  color: #e2e8f0;
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.save-btn:hover:not(:disabled) {
+  border-color: #475569;
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.2);
+}
+
+.save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.save-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid #475569;
+  border-radius: 8px;
+}
+
+.save-dialog input {
+  padding: 0.5rem;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  color: #e2e8f0;
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-size: 0.75rem;
+}
+
+.save-dialog input:focus {
+  outline: none;
+  border-color: #60a5fa;
+}
+
+.save-dialog-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.save-dialog-actions button {
+  flex: 1;
+  padding: 0.5rem;
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border: 1px solid #334155;
+  border-radius: 6px;
+  color: #e2e8f0;
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.save-dialog-actions button:hover {
+  border-color: #475569;
+}
+
+.saves-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.no-saves {
+  text-align: center;
+  color: #64748b;
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-size: 0.75rem;
+  padding: 1rem;
+}
+
+.save-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid #334155;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.save-item:hover {
+  border-color: #475569;
+  background: rgba(15, 23, 42, 0.8);
+}
+
+.save-item input {
+  padding: 0.25rem 0.5rem;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 4px;
+  color: #e2e8f0;
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-size: 0.75rem;
+  width: 100%;
+}
+
+.save-item-name {
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.save-item-date {
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-size: 0.625rem;
+  color: #64748b;
+}
+
+.save-item-actions {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: flex;
+  gap: 0.25rem;
+}
+
+.save-item-actions button {
+  padding: 0.25rem 0.5rem;
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid #334155;
+  border-radius: 4px;
+  color: #e2e8f0;
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-size: 0.625rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.save-item-actions button:hover {
+  background: rgba(30, 41, 59, 1);
+  border-color: #475569;
 }

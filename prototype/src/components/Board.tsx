@@ -9,6 +9,7 @@ import { GameSetup, PLAYER_COLORS } from './GameSetup';
 import { TilePalette } from './TilePalette';
 import { ActionPanel } from './ActionPanel';
 import { CenterInfo } from './CenterInfo';
+import { SaveManager } from './SaveManager';
 
 const SLOT_COUNT = 16;
 const SVG_SIZE = 900;
@@ -19,13 +20,16 @@ const PLAYER_RING_RADIUS = OUTER_RADIUS + 35;
 
 const STORAGE_KEY = 'ring-board-game-save';
 
-interface SavedGameState {
+export interface SavedGameState {
   version: number;
   gamePhase: GamePhase;
   playerCount: number;
   slots: TileSlotType[];
   rotationOffset: number;
   currentPlayerIndex: number;
+  playerResources?: Record<number, number>;
+  playerVictoryPoints?: Record<number, number>;
+  playerRotationPoints?: Record<number, number>;
 }
 
 function createInitialSlots(count: number): TileSlotType[] {
@@ -134,6 +138,7 @@ export function Board() {
   const [slots, setSlots] = useState<TileSlotType[]>(initialState.slots);
   const [rotationOffset, setRotationOffset] = useState(initialState.rotationOffset);
   const [selectedTile, setSelectedTile] = useState<TileData | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<Set<number> | null>(null);
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(initialState.currentPlayerIndex);
   const [hasRotatedThisTurn, setHasRotatedThisTurn] = useState(false);
   const [hasPlacedTileThisTurn, setHasPlacedTileThisTurn] = useState(false);
@@ -171,6 +176,11 @@ export function Board() {
     gapAngle: 3
   });
 
+  // Check if all slots are filled
+  const areAllSlotsFilled = useCallback((currentSlots: TileSlotType[]): boolean => {
+    return currentSlots.every(slot => slot.filled);
+  }, []);
+
   // Build available actions based on current game state
   const availableActions = useMemo((): GameAction[] => {
     const hasEmptySlots = slots.some(s => !s.filled);
@@ -187,12 +197,20 @@ export function Board() {
       },
       {
         type: 'rotate_board',
-        name: 'Rotate Board',
+        name: areAllSlotsFilled(slots)
+          ? 'Rotate Board'
+          : selectedGroup
+          ? 'Move Selected Group'
+          : 'Select Tile Group',
         description: hasRotatedThisTurn 
-          ? 'Already rotated this turn' 
-          : 'Use the rotation buttons',
+          ? 'Already moved this turn' 
+          : areAllSlotsFilled(slots)
+          ? 'All tiles connected - rotate entire board'
+          : selectedGroup
+          ? `Click rotation buttons to move ${selectedGroup.size} tile${selectedGroup.size > 1 ? 's' : ''}`
+          : 'Click a tile to select its connected group',
         icon: '🔄',
-        enabled: !hasRotatedThisTurn
+        enabled: !hasRotatedThisTurn && (!!selectedGroup || areAllSlotsFilled(slots))
       },
       {
         type: 'end_turn',
@@ -202,7 +220,24 @@ export function Board() {
         enabled: true
       }
     ];
-  }, [slots, selectedTile, hasRotatedThisTurn, hasPlacedTileThisTurn, currentPlayerIndex, players.length]);
+  }, [slots, selectedTile, selectedGroup, hasRotatedThisTurn, hasPlacedTileThisTurn, currentPlayerIndex, players.length, areAllSlotsFilled]);
+
+  // Get current game state for saving
+  const getCurrentState = useCallback((): SavedGameState | null => {
+    if (gamePhase !== 'playing') return null;
+    
+    return {
+      version: 1,
+      gamePhase,
+      playerCount: players.length,
+      slots,
+      rotationOffset,
+      currentPlayerIndex,
+      playerResources,
+      playerVictoryPoints,
+      playerRotationPoints
+    };
+  }, [gamePhase, players.length, slots, rotationOffset, currentPlayerIndex, playerResources, playerVictoryPoints, playerRotationPoints]);
 
   // Save state whenever it changes
   useEffect(() => {
@@ -212,7 +247,10 @@ export function Board() {
       playerCount: players.length,
       slots,
       rotationOffset,
-      currentPlayerIndex
+      currentPlayerIndex,
+      playerResources,
+      playerVictoryPoints,
+      playerRotationPoints
     };
     
     if (gamePhase === 'playing') {
@@ -220,12 +258,23 @@ export function Board() {
     } else {
       clearGameState();
     }
-  }, [gamePhase, players.length, slots, rotationOffset, currentPlayerIndex]);
+  }, [gamePhase, players.length, slots, rotationOffset, currentPlayerIndex, playerResources, playerVictoryPoints, playerRotationPoints]);
 
-  const handleStartGame = useCallback((playerCount: number) => {
+  const handleStartGame = useCallback((playerCount: number, fillWithBlanks: boolean = false) => {
     const newPlayers = createPlayers(playerCount, SLOT_COUNT);
     setPlayers(newPlayers);
-    setSlots(createInitialSlots(SLOT_COUNT));
+    
+    // Create initial slots, optionally filled with blank tiles
+    let initialSlots = createInitialSlots(SLOT_COUNT);
+    if (fillWithBlanks) {
+      initialSlots = initialSlots.map(slot => ({
+        ...slot,
+        filled: true,
+        tile: { typeId: 'blank' }
+      }));
+    }
+    setSlots(initialSlots);
+    
     setRotationOffset(0);
     setSelectedTile(null);
     setCurrentPlayerIndex(0);
@@ -261,6 +310,24 @@ export function Board() {
     clearGameState();
   }, []);
 
+  const handleLoadSave = useCallback((savedState: SavedGameState) => {
+    const newPlayers = createPlayers(savedState.playerCount, SLOT_COUNT);
+    setPlayers(newPlayers);
+    setSlots(savedState.slots);
+    setRotationOffset(savedState.rotationOffset);
+    setCurrentPlayerIndex(savedState.currentPlayerIndex ?? 0);
+    setHasRotatedThisTurn(false);
+    setHasPlacedTileThisTurn(false);
+    setSelectedTile(null);
+    
+    // Restore player resources and victory points
+    setPlayerResources(savedState.playerResources ?? {});
+    setPlayerVictoryPoints(savedState.playerVictoryPoints ?? {});
+    setPlayerRotationPoints(savedState.playerRotationPoints ?? {});
+    
+    setGamePhase('playing');
+  }, []);
+
   const handleSlotClick = useCallback((slotIndex: number) => {
     if (!selectedTile || hasPlacedTileThisTurn) return;
     
@@ -289,11 +356,15 @@ export function Board() {
     return effectiveSlot;
   }, []);
 
-  // Trigger tile effects for players on tiles after rotation
-  const triggerTileEffects = useCallback((newRotationOffset: number) => {
+  // Trigger tile effects for players on tiles
+  const triggerTileEffects = useCallback((currentSlots: TileSlotType[], useRotationOffset?: number) => {
     players.forEach(player => {
-      const effectiveSlot = getPlayerEffectiveSlot(player, newRotationOffset);
-      const slot = slots[effectiveSlot];
+      // If rotation offset is provided, use it to calculate effective slot (for full board rotation)
+      // Otherwise, check the player's actual slot position directly (for group movement)
+      const slotIndex = useRotationOffset !== undefined 
+        ? getPlayerEffectiveSlot(player, useRotationOffset)
+        : player.slotIndex;
+      const slot = currentSlots[slotIndex];
       
       if (slot?.filled && slot.tile) {
         const tile = slot.tile;
@@ -327,11 +398,13 @@ export function Board() {
           }
           
           case 'movement': {
-            // Move player by X slots
+            // Move player by X slots in the specified direction
             const moveAmount = tile.value ?? 1;
+            const direction = tile.direction ?? 'right';
+            const delta = direction === 'left' ? -moveAmount : moveAmount;
             setPlayers(current => current.map(p => 
               p.id === player.id 
-                ? { ...p, slotIndex: (p.slotIndex + moveAmount) % SLOT_COUNT }
+                ? { ...p, slotIndex: (p.slotIndex + delta + SLOT_COUNT) % SLOT_COUNT }
                 : p
             ));
             break;
@@ -372,33 +445,183 @@ export function Board() {
             // For now, we'll skip automatic execution
             break;
           }
+          
+          case 'blank': {
+            // Blank tiles have no effect
+            break;
+          }
         }
       }
     });
-  }, [players, slots, playerResources, getPlayerEffectiveSlot]);
+  }, [players, playerResources, getPlayerEffectiveSlot]);
+
+  // Find all slots connected to a given slot (adjacent filled slots)
+  const findConnectedGroup = useCallback((startSlotIndex: number, currentSlots: TileSlotType[]): Set<number> => {
+    const group = new Set<number>();
+    const visited = new Set<number>();
+    const queue = [startSlotIndex];
+
+    while (queue.length > 0) {
+      const slotIndex = queue.shift()!;
+      if (visited.has(slotIndex)) continue;
+      visited.add(slotIndex);
+
+      const slot = currentSlots[slotIndex];
+      if (!slot.filled) continue; // Empty slots don't connect
+
+      group.add(slotIndex);
+
+      // Check adjacent slots (neighbors in a ring)
+      const leftNeighbor = (slotIndex - 1 + SLOT_COUNT) % SLOT_COUNT;
+      const rightNeighbor = (slotIndex + 1) % SLOT_COUNT;
+
+      if (!visited.has(leftNeighbor) && currentSlots[leftNeighbor].filled) {
+        queue.push(leftNeighbor);
+      }
+      if (!visited.has(rightNeighbor) && currentSlots[rightNeighbor].filled) {
+        queue.push(rightNeighbor);
+      }
+    }
+
+    return group;
+  }, []);
+
+  // Move a group of tiles in a direction
+  const moveGroup = useCallback((group: Set<number>, direction: RotationDirection, currentSlots: TileSlotType[]) => {
+    const newSlots = [...currentSlots];
+    const groupArray = Array.from(group);
+    const isClockwise = direction === 'clockwise';
+
+    // Create a map of old index -> new index
+    const indexMap = new Map<number, number>();
+    groupArray.forEach(oldIndex => {
+      const newIndex = isClockwise 
+        ? (oldIndex + 1) % SLOT_COUNT
+        : (oldIndex - 1 + SLOT_COUNT) % SLOT_COUNT;
+      indexMap.set(oldIndex, newIndex);
+    });
+
+    // Check for collisions and merge groups
+    const collisionGroups = new Set<Set<number>>();
+    groupArray.forEach(oldIndex => {
+      const newIndex = indexMap.get(oldIndex)!;
+      if (newSlots[newIndex].filled && !group.has(newIndex)) {
+        // Found a collision - find the group this slot belongs to
+        const collisionGroup = findConnectedGroup(newIndex, newSlots);
+        collisionGroups.add(collisionGroup);
+      }
+    });
+
+    // Merge all collision groups with the moving group
+    const mergedGroup = new Set(group);
+    collisionGroups.forEach(collisionGroup => {
+      collisionGroup.forEach(index => mergedGroup.add(index));
+    });
+
+    // If all slots are filled, move everything
+    if (areAllSlotsFilled(newSlots)) {
+      // Rotate entire board
+      const slotAngle = 360 / SLOT_COUNT;
+      const delta = isClockwise ? slotAngle : -slotAngle;
+      const newRotationOffset = rotationOffset + delta;
+      setRotationOffset(newRotationOffset);
+      setHasRotatedThisTurn(true);
+      
+      setTimeout(() => {
+        triggerTileEffects(newSlots, newRotationOffset);
+      }, 100);
+      return;
+    }
+
+    // Move the merged group
+    const mergedArray = Array.from(mergedGroup);
+    
+    // Recalculate index map for merged group
+    const mergedIndexMap = new Map<number, number>();
+    mergedArray.forEach(oldIndex => {
+      const newIndex = isClockwise 
+        ? (oldIndex + 1) % SLOT_COUNT
+        : (oldIndex - 1 + SLOT_COUNT) % SLOT_COUNT;
+      mergedIndexMap.set(oldIndex, newIndex);
+    });
+
+    // Create new slots array
+    const tempSlots = newSlots.map((slot, index) => {
+      if (mergedGroup.has(index)) {
+        return { ...slot, tile: undefined, filled: false };
+      }
+      return slot;
+    });
+
+    // Move tiles to new positions
+    mergedArray.forEach(oldIndex => {
+      const newIndex = mergedIndexMap.get(oldIndex)!;
+      const oldSlot = newSlots[oldIndex];
+      tempSlots[newIndex] = {
+        ...tempSlots[newIndex],
+        filled: true,
+        tile: oldSlot.tile
+      };
+    });
+
+    setSlots(tempSlots);
+    setHasRotatedThisTurn(true);
+    setSelectedGroup(null);
+
+    // Trigger tile effects after movement - use new slots and check player's actual position
+    setTimeout(() => {
+      triggerTileEffects(tempSlots);
+    }, 100);
+  }, [rotationOffset, findConnectedGroup, areAllSlotsFilled, triggerTileEffects]);
+
+  const handleSelectGroup = useCallback((slotIndex: number) => {
+    if (hasRotatedThisTurn) return;
+    const slot = slots[slotIndex];
+    if (!slot.filled) return; // Can't select empty slots
+
+    const group = findConnectedGroup(slotIndex, slots);
+    setSelectedGroup(group);
+  }, [slots, hasRotatedThisTurn, findConnectedGroup]);
+
+  const handleMoveGroup = useCallback((direction: RotationDirection) => {
+    if (!selectedGroup || hasRotatedThisTurn) return;
+    moveGroup(selectedGroup, direction, slots);
+  }, [selectedGroup, hasRotatedThisTurn, slots, moveGroup]);
 
   const handleRotate = useCallback((direction: RotationDirection) => {
-    if (hasRotatedThisTurn) return;
-    
-    const slotAngle = 360 / SLOT_COUNT;
-    const delta = direction === 'clockwise' ? slotAngle : -slotAngle;
-    const newRotationOffset = rotationOffset + delta;
-    
-    setRotationOffset(newRotationOffset);
-    setHasRotatedThisTurn(true);
-    
-    // Trigger tile effects after rotation completes
-    // Use setTimeout to allow animation to start, then trigger effects
-    setTimeout(() => {
-      triggerTileEffects(newRotationOffset);
-    }, 100);
-  }, [hasRotatedThisTurn, rotationOffset, triggerTileEffects]);
+    // If a group is selected, move that group
+    if (selectedGroup) {
+      handleMoveGroup(direction);
+      return;
+    }
+
+    // If all slots are filled, rotate entire board
+    if (areAllSlotsFilled(slots)) {
+      if (hasRotatedThisTurn) return;
+      
+      const slotAngle = 360 / SLOT_COUNT;
+      const delta = direction === 'clockwise' ? slotAngle : -slotAngle;
+      const newRotationOffset = rotationOffset + delta;
+      
+      setRotationOffset(newRotationOffset);
+      setHasRotatedThisTurn(true);
+      
+      setTimeout(() => {
+        triggerTileEffects(slots, newRotationOffset);
+      }, 100);
+      return;
+    }
+
+    // Otherwise, prompt to select a group first
+    // (This will be handled by UI - rotation buttons disabled if no group selected)
+  }, [selectedGroup, hasRotatedThisTurn, rotationOffset, slots, areAllSlotsFilled, triggerTileEffects, handleMoveGroup]);
 
   const handleEndTurn = useCallback(() => {
     setCurrentPlayerIndex(current => (current + 1) % players.length);
     setHasRotatedThisTurn(false);
     setHasPlacedTileThisTurn(false);
     setSelectedTile(null);
+    setSelectedGroup(null);
   }, [players.length]);
 
   const handleAction = useCallback((actionType: string) => {
@@ -489,7 +712,9 @@ export function Board() {
               innerRadius={INNER_RADIUS}
               outerRadius={OUTER_RADIUS}
               onSlotClick={handleSlotClick}
+              onGroupSelect={handleSelectGroup}
               onTileHover={handleTileHover}
+              selectedGroup={selectedGroup}
             />
 
             {/* Player tokens on outer ring */}
@@ -516,7 +741,7 @@ export function Board() {
                 slotCount={SLOT_COUNT}
                 centerX={CENTER}
                 centerY={CENTER}
-                radius={PLAYER_RING_RADIUS + 50}
+                radius={PLAYER_RING_RADIUS + 100}
               />
             ))}
 
@@ -530,7 +755,10 @@ export function Board() {
             />
           </svg>
 
-          <RotationControls onRotate={handleRotate} disabled={hasRotatedThisTurn} />
+          <RotationControls 
+            onRotate={handleRotate} 
+            disabled={hasRotatedThisTurn || (!selectedGroup && !areAllSlotsFilled(slots))} 
+          />
 
           <div className="info-panel">
             <p>Players: {players.length}</p>
@@ -548,6 +776,11 @@ export function Board() {
         actions={availableActions}
         selectedTile={selectedTile}
         onAction={handleAction}
+      />
+
+      <SaveManager
+        currentState={getCurrentState()}
+        onLoadSave={handleLoadSave}
       />
     </div>
   );
