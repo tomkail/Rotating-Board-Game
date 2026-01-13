@@ -63,9 +63,37 @@ function createArcPath(
 }
 
 /**
+ * Creates a canonical arc path centered at origin, pointing "up" (negative Y)
+ * This path can be rotated to any slot position using CSS transforms
+ */
+export function createCanonicalTilePath(
+  innerRadius: number,
+  outerRadius: number,
+  arcAngle: number // Total angular width of the tile in degrees
+): string {
+  const halfAngle = arcAngle / 2;
+  // Centered at origin, pointing up (so midAngle would be -90 degrees)
+  const startAngle = -90 - halfAngle;
+  const endAngle = -90 + halfAngle;
+  
+  return createArcPath(0, 0, innerRadius, outerRadius, startAngle, endAngle);
+}
+
+export interface RingGeometryResult {
+  geometries: ArcGeometry[];
+  canonicalTilePath: string;
+  slotAngle: number;
+  arcAngle: number; // Effective arc angle (slotAngle - gapAngle)
+  innerRadius: number;
+  outerRadius: number;
+  centerX: number;
+  centerY: number;
+}
+
+/**
  * Hook that generates SVG arc geometry for each slot in the ring
  */
-export function useRingGeometry(config: RingGeometryConfig): ArcGeometry[] {
+export function useRingGeometry(config: RingGeometryConfig): RingGeometryResult {
   const {
     slotCount,
     innerRadius,
@@ -77,7 +105,10 @@ export function useRingGeometry(config: RingGeometryConfig): ArcGeometry[] {
 
   return useMemo(() => {
     const slotAngle = 360 / slotCount;
-    const effectiveSlotAngle = slotAngle - gapAngle;
+    const arcAngle = slotAngle - gapAngle;
+
+    // Create canonical tile path (centered at origin, pointing up)
+    const canonicalTilePath = createCanonicalTilePath(innerRadius, outerRadius, arcAngle);
 
     const geometries: ArcGeometry[] = [];
 
@@ -107,7 +138,16 @@ export function useRingGeometry(config: RingGeometryConfig): ArcGeometry[] {
       });
     }
 
-    return geometries;
+    return {
+      geometries,
+      canonicalTilePath,
+      slotAngle,
+      arcAngle,
+      innerRadius,
+      outerRadius,
+      centerX,
+      centerY
+    };
   }, [slotCount, innerRadius, outerRadius, centerX, centerY, gapAngle]);
 }
 

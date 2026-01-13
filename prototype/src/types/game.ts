@@ -25,6 +25,7 @@ export type TileTypeId =
 export type MovementDirection = 'left' | 'right';
 
 export interface TileData {
+  id: string; // Unique identifier for the tile instance
   typeId: TileTypeId;
   value?: number; // For resource, victory, movement
   ownerId?: number; // For skip, block, transfer

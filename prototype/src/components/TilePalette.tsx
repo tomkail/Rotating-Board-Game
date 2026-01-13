@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import type { TileData, TileTypeConfig, Player, MovementDirection } from '../types/game';
 import { TILE_TYPES } from '../types/game';
@@ -7,6 +7,7 @@ interface TilePaletteProps {
   players: Player[];
   selectedTile: TileData | null;
   onSelectTile: (tile: TileData | null) => void;
+  onDeselectGroup?: () => void;
 }
 
 interface TileOptionProps {
@@ -22,21 +23,13 @@ function TileOption({ config, players, isSelected, currentTile, onSelect }: Tile
   const [ownerId, setOwnerId] = useState<number | undefined>(
     config.hasOwner && players.length > 0 ? players[0].id : undefined
   );
-  const [direction, setDirection] = useState<MovementDirection>(
+  const [direction, setDirection] = useState<MovementDirection>(() => 
     currentTile?.direction ?? 'right'
   );
 
-  // Sync direction when currentTile changes
-  useEffect(() => {
-    if (currentTile?.direction) {
-      setDirection(currentTile.direction);
-    } else if (config.hasDirection && !currentTile?.direction) {
-      setDirection('right');
-    }
-  }, [currentTile, config.hasDirection]);
-
   const handleSelect = () => {
     onSelect({
+      id: `${config.id}-${Date.now()}-${Math.random()}`,
       typeId: config.id,
       value: config.hasValue ? value : undefined,
       ownerId: config.hasOwner ? ownerId : undefined,
@@ -47,12 +40,10 @@ function TileOption({ config, players, isSelected, currentTile, onSelect }: Tile
   const adjustValue = (delta: number) => {
     const newValue = Math.max(config.minValue ?? 1, Math.min(config.maxValue ?? 5, value + delta));
     setValue(newValue);
-    if (isSelected) {
+    if (isSelected && currentTile) {
       onSelect({
-        typeId: config.id,
-        value: newValue,
-        ownerId: config.hasOwner ? ownerId : undefined,
-        direction: config.hasDirection ? direction : undefined
+        ...currentTile,
+        value: newValue
       });
     }
   };
@@ -60,11 +51,9 @@ function TileOption({ config, players, isSelected, currentTile, onSelect }: Tile
   const toggleDirection = () => {
     const newDirection: MovementDirection = direction === 'left' ? 'right' : 'left';
     setDirection(newDirection);
-    if (isSelected) {
+    if (isSelected && currentTile) {
       onSelect({
-        typeId: config.id,
-        value: config.hasValue ? value : undefined,
-        ownerId: config.hasOwner ? ownerId : undefined,
+        ...currentTile,
         direction: config.hasDirection ? newDirection : undefined
       });
     }
@@ -72,12 +61,10 @@ function TileOption({ config, players, isSelected, currentTile, onSelect }: Tile
 
   const selectOwner = (playerId: number) => {
     setOwnerId(playerId);
-    if (isSelected) {
+    if (isSelected && currentTile) {
       onSelect({
-        typeId: config.id,
-        value: config.hasValue ? value : undefined,
-        ownerId: playerId,
-        direction: config.hasDirection ? direction : undefined
+        ...currentTile,
+        ownerId: playerId
       });
     }
   };
@@ -170,7 +157,12 @@ function TileOption({ config, players, isSelected, currentTile, onSelect }: Tile
   );
 }
 
-export function TilePalette({ players, selectedTile, onSelectTile }: TilePaletteProps) {
+export function TilePalette({ players, selectedTile, onSelectTile, onDeselectGroup }: TilePaletteProps) {
+  const handleSelectTile = (tile: TileData) => {
+    onDeselectGroup?.();
+    onSelectTile(tile);
+  };
+
   return (
     <div className="tile-palette">
       <div className="palette-header">
@@ -195,7 +187,7 @@ export function TilePalette({ players, selectedTile, onSelectTile }: TilePalette
             players={players}
             isSelected={selectedTile?.typeId === config.id}
             currentTile={selectedTile}
-            onSelect={onSelectTile}
+            onSelect={handleSelectTile}
           />
         ))}
       </div>
