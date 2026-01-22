@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { SavedGameState } from './Board';
 
@@ -11,30 +11,29 @@ interface SaveSlot {
 
 const SAVES_STORAGE_KEY = 'ring-board-game-saves';
 
+function loadSavesFromStorage(): SaveSlot[] {
+  try {
+    const saved = localStorage.getItem(SAVES_STORAGE_KEY);
+    if (saved) {
+      return JSON.parse(saved) as SaveSlot[];
+    }
+  } catch (e) {
+    console.warn('Failed to load saves:', e);
+  }
+  return [];
+}
+
 interface SaveManagerProps {
   currentState: SavedGameState | null;
   onLoadSave: (state: SavedGameState) => void;
 }
 
 export function SaveManager({ currentState, onLoadSave }: SaveManagerProps) {
-  const [saves, setSaves] = useState<SaveSlot[]>([]);
+  const [saves, setSaves] = useState<SaveSlot[]>(loadSavesFromStorage);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [saveName, setSaveName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
-
-  // Load saves from localStorage
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(SAVES_STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved) as SaveSlot[];
-        setSaves(parsed);
-      }
-    } catch (e) {
-      console.warn('Failed to load saves:', e);
-    }
-  }, []);
 
   // Save saves to localStorage
   const persistSaves = (newSaves: SaveSlot[]) => {

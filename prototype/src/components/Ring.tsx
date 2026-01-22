@@ -20,8 +20,13 @@ function createGroupOutlinePath(
   innerRadius: number,
   outerRadius: number,
   slotCount: number
-): string {
+): string | { isFullRing: true; centerX: number; centerY: number; innerRadius: number; outerRadius: number } {
   if (selectedIndices.length === 0) return '';
+  
+  // If all slots are selected, return a special marker for full ring
+  if (selectedIndices.length === slotCount) {
+    return { isFullRing: true, centerX, centerY, innerRadius, outerRadius };
+  }
   
   // Sort indices to find contiguous ranges
   const sorted = [...selectedIndices].sort((a, b) => a - b);
@@ -125,9 +130,9 @@ export function Ring({
     return true; // Currently all slots can be replaced
   };
 
-  // Calculate the combined group outline path
-  const groupOutlinePath = useMemo(() => {
-    if (!selectedGroup || selectedGroup.size === 0) return '';
+  // Calculate the combined group outline path (or full ring marker)
+  const groupOutlineData = useMemo(() => {
+    if (!selectedGroup || selectedGroup.size === 0) return null;
     return createGroupOutlinePath(
       Array.from(selectedGroup),
       geometries,
@@ -138,6 +143,9 @@ export function Ring({
       slotCount
     );
   }, [selectedGroup, geometries, centerX, centerY, innerRadius, outerRadius, slotCount]);
+
+  const isFullRing = groupOutlineData && typeof groupOutlineData === 'object' && 'isFullRing' in groupOutlineData;
+  const groupOutlinePath = typeof groupOutlineData === 'string' ? groupOutlineData : null;
 
   return (
     <g>
@@ -177,7 +185,7 @@ export function Ring({
       
       {/* Tiles layer - animate via rotation transforms */}
       {slots.map((slot, index) => 
-        slot.filled && slot.tile ? (
+        slot.filled && slot.tile && geometries[index] ? (
           <Tile
             key={slot.tile.id}
             tile={slot.tile}
@@ -260,6 +268,24 @@ export function Ring({
             strokeWidth={2}
             opacity={0.7}
           />
+        </g>
+      )}
+
+      {/* Full ring selection highlight - when all tiles are selected */}
+      {isFullRing && (
+        <g style={{ pointerEvents: 'none' }}>
+          {/* Outer glow - outer circle */}
+          <circle cx={centerX} cy={centerY} r={outerRadius} fill="none" stroke="#60a5fa" strokeWidth={12} opacity={0.4} />
+          {/* Outer glow - inner circle */}
+          <circle cx={centerX} cy={centerY} r={innerRadius} fill="none" stroke="#60a5fa" strokeWidth={12} opacity={0.4} />
+          {/* Main outline - outer circle */}
+          <circle cx={centerX} cy={centerY} r={outerRadius} fill="none" stroke="#38bdf8" strokeWidth={6} opacity={1} />
+          {/* Main outline - inner circle */}
+          <circle cx={centerX} cy={centerY} r={innerRadius} fill="none" stroke="#38bdf8" strokeWidth={6} opacity={1} />
+          {/* Inner highlight - outer circle */}
+          <circle cx={centerX} cy={centerY} r={outerRadius} fill="none" stroke="#ffffff" strokeWidth={2} opacity={0.7} />
+          {/* Inner highlight - inner circle */}
+          <circle cx={centerX} cy={centerY} r={innerRadius} fill="none" stroke="#ffffff" strokeWidth={2} opacity={0.7} />
         </g>
       )}
     </g>

@@ -1,30 +1,116 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { PLAYER_COLORS } from '../constants/colors';
 
-interface GameSetupProps {
-  onStartGame: (playerCount: number, fillWithBlanks: boolean, tileCount: number) => void;
-}
+export type EmptyTileAmount = 'none' | 'few' | 'some' | 'many' | 'all';
 
-const PLAYER_COLORS = [
-  '#ef4444', // red
-  '#3b82f6', // blue
-  '#22c55e', // green
-  '#eab308', // yellow
-  '#a855f7', // purple
-  '#f97316', // orange
-  '#06b6d4', // cyan
-  '#ec4899', // pink
+const EMPTY_TILE_OPTIONS: { value: EmptyTileAmount; label: string }[] = [
+  { value: 'none', label: 'None' },
+  { value: 'few', label: 'Few' },
+  { value: 'some', label: 'Some' },
+  { value: 'many', label: 'Many' },
+  { value: 'all', label: 'All' },
 ];
 
+interface GameSetupProps {
+  onStartGame: (playerCount: number, fillWithBlanks: boolean, tileCount: number, randomFill?: { enabled: boolean; seed: string; emptyTileAmount: EmptyTileAmount }) => void;
+}
+
+const STORAGE_KEY = 'ring-game-setup-settings';
+
+interface SavedSettings {
+  fillWithBlanks: boolean;
+  fillWithRandom: boolean;
+  randomSeed: string;
+  emptyTileAmount: EmptyTileAmount;
+  tileCount: number;
+  selectedPlayerCount: number | null;
+}
+
+function loadSavedSettings(): Partial<SavedSettings> {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch {
+    // Ignore parse errors
+  }
+  return {};
+}
+
+function saveSettings(settings: SavedSettings): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+function generateRandomSeed(): string {
+  const adjectives = ['swift', 'bright', 'cosmic', 'golden', 'silent', 'ancient', 'wild', 'mystic', 'jade', 'crimson'];
+  const nouns = ['tiger', 'phoenix', 'dragon', 'storm', 'moon', 'river', 'forest', 'crystal', 'flame', 'shadow'];
+  const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+  const noun = nouns[Math.floor(Math.random() * nouns.length)];
+  const num = Math.floor(Math.random() * 1000);
+  return `${adj}-${noun}-${num}`;
+}
+
 export function GameSetup({ onStartGame }: GameSetupProps) {
-  const [fillWithBlanks, setFillWithBlanks] = useState(false);
-  const [tileCount, setTileCount] = useState(16);
-  const [selectedPlayerCount, setSelectedPlayerCount] = useState<number | null>(null);
+  // Load saved settings on initial render
+  const [savedSettings] = useState(() => loadSavedSettings());
+  
+  const [fillWithBlanks, setFillWithBlanks] = useState(savedSettings.fillWithBlanks ?? false);
+  const [fillWithRandom, setFillWithRandom] = useState(savedSettings.fillWithRandom ?? false);
+  const [randomSeed, setRandomSeed] = useState(() => savedSettings.randomSeed ?? generateRandomSeed());
+  const [emptyTileAmount, setEmptyTileAmount] = useState<EmptyTileAmount>(savedSettings.emptyTileAmount ?? 'some');
+  const [tileCount, setTileCount] = useState(savedSettings.tileCount ?? 16);
+  const [selectedPlayerCount, setSelectedPlayerCount] = useState<number | null>(savedSettings.selectedPlayerCount ?? null);
+
+  // Save settings whenever they change
+  useEffect(() => {
+    saveSettings({
+      fillWithBlanks,
+      fillWithRandom,
+      randomSeed,
+      emptyTileAmount,
+      tileCount,
+      selectedPlayerCount,
+    });
+  }, [fillWithBlanks, fillWithRandom, randomSeed, emptyTileAmount, tileCount, selectedPlayerCount]);
 
   const handleStartGame = () => {
     if (selectedPlayerCount !== null) {
-      onStartGame(selectedPlayerCount, fillWithBlanks, tileCount);
+      onStartGame(selectedPlayerCount, fillWithBlanks, tileCount, 
+        fillWithRandom ? { enabled: true, seed: randomSeed, emptyTileAmount } : undefined
+      );
     }
+  };
+
+  const handleRandomSeedChange = (value: string) => {
+    setRandomSeed(value);
+    if (value) {
+      setFillWithRandom(true);
+      setFillWithBlanks(false);
+    }
+  };
+
+  const handleFillWithRandomChange = (checked: boolean) => {
+    setFillWithRandom(checked);
+    if (checked) {
+      setFillWithBlanks(false);
+    }
+  };
+
+  const handleFillWithBlanksChange = (checked: boolean) => {
+    setFillWithBlanks(checked);
+    if (checked) {
+      setFillWithRandom(false);
+    }
+  };
+
+  const regenerateSeed = () => {
+    setRandomSeed(generateRandomSeed());
   };
 
   return (
@@ -76,10 +162,60 @@ export function GameSetup({ onStartGame }: GameSetupProps) {
           <input
             type="checkbox"
             checked={fillWithBlanks}
-            onChange={(e) => setFillWithBlanks(e.target.checked)}
+            onChange={(e) => handleFillWithBlanksChange(e.target.checked)}
           />
           <span>Fill board with blank tiles</span>
         </label>
+
+        <label className="checkbox-label">
+          <input
+            type="checkbox"
+            checked={fillWithRandom}
+            onChange={(e) => handleFillWithRandomChange(e.target.checked)}
+          />
+          <span>Fill board with random tiles</span>
+        </label>
+
+        {fillWithRandom && (
+          <div className="seed-input-group">
+            <label className="seed-label">
+              <span>Seed:</span>
+              <div className="seed-input-wrapper">
+                <input
+                  type="text"
+                  value={randomSeed}
+                  onChange={(e) => handleRandomSeedChange(e.target.value)}
+                  className="seed-input"
+                  placeholder="Enter seed..."
+                />
+                <button
+                  type="button"
+                  className="regenerate-seed-btn"
+                  onClick={regenerateSeed}
+                  title="Generate new random seed"
+                >
+                  🎲
+                </button>
+              </div>
+            </label>
+            
+            <div className="empty-tiles-group">
+              <span className="empty-tiles-label">Empty tiles:</span>
+              <div className="empty-tiles-buttons">
+                {EMPTY_TILE_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className={`empty-tile-btn ${emptyTileAmount === option.value ? 'selected' : ''}`}
+                    onClick={() => setEmptyTileAmount(option.value)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <motion.button
@@ -96,5 +232,3 @@ export function GameSetup({ onStartGame }: GameSetupProps) {
     </motion.div>
   );
 }
-
-export { PLAYER_COLORS };

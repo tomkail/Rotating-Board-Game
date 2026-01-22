@@ -1,15 +1,152 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import type { TileSlot as TileSlotType, RotationDirection, Player, TileData, GameAction } from '../types/game';
+import type { TileSlot as TileSlotType, RotationDirection, Player, TileData, GameAction, TileTypeId, MovementDirection } from '../types/game';
+import { getTileTypeConfig } from '../types/game';
 import { useRingGeometry } from '../hooks/useRingGeometry';
 import { Ring } from './Ring';
 import { PlayerToken } from './PlayerToken';
 import { PlayerResources } from './PlayerResources';
-import { GameSetup, PLAYER_COLORS } from './GameSetup';
+import { GameSetup, type EmptyTileAmount } from './GameSetup';
+import { PLAYER_COLORS } from '../constants/colors';
 import { TilePalette } from './TilePalette';
 import { ActionPanel } from './ActionPanel';
 import { CenterInfo } from './CenterInfo';
 import { SaveManager } from './SaveManager';
 import { DevControls } from './DevControls';
+
+// Seeded random number generator (mulberry32)
+function createSeededRandom(seed: string): () => number {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    const char = seed.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  
+  let a = hash >>> 0;
+  return function() {
+    let t = a += 0x6D2B79F5;
+    t = Math.imul(t ^ t >>> 15, t | 1);
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+// Tile distribution weights for shuffle bag
+// Higher numbers = more common in the bag
+const TILE_WEIGHTS: Record<TileTypeId, number> = {
+  resource: 8,   // Most common - core gameplay
+  victory: 3,    // Somewhat common - scoring tiles
+  blank: 3,      // Somewhat common - breathing room
+  movement: 2,   // Less common - tactical tiles
+  swap: 1,       // Rare - powerful effect
+  skip: 1,       // Rare - disruptive
+  block: 1,      // Rare - disruptive
+  transfer: 1,   // Rare - interaction tile
+};
+
+// Empty slot ratios - what fraction of slots should be left unfilled
+const EMPTY_SLOT_RATIOS: Record<EmptyTileAmount, number> = {
+  none: 0,      // All slots filled
+  few: 0.15,    // ~15% empty
+  some: 0.35,   // ~35% empty
+  many: 0.55,   // ~55% empty
+  all: 1,       // All slots empty
+};
+
+// Create a shuffle bag with weighted tile distribution
+function createShuffleBag(random: () => number, tileCount: number): TileTypeId[] {
+  const bag: TileTypeId[] = [];
+  
+  // Calculate total weight
+  const totalWeight = Object.values(TILE_WEIGHTS).reduce((sum, w) => sum + w, 0);
+  
+  // Fill the bag based on weights, scaled to the tile count
+  // We want at least enough tiles for the board, with good distribution
+  const bagSize = Math.max(tileCount, 20); // Minimum bag size for good distribution
+  
+  for (const [typeId, weight] of Object.entries(TILE_WEIGHTS)) {
+    const count = Math.round((weight / totalWeight) * bagSize);
+    for (let i = 0; i < count; i++) {
+      bag.push(typeId as TileTypeId);
+    }
+  }
+  
+  // Ensure bag has at least tileCount items by adding more resource tiles if needed
+  while (bag.length < tileCount) {
+    bag.push('resource');
+  }
+  
+  // Fisher-Yates shuffle using the seeded random
+  for (let i = bag.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [bag[i], bag[j]] = [bag[j], bag[i]];
+  }
+  
+  return bag;
+}
+
+// Generate a tile from a specific type
+function generateTileFromType(random: () => number, typeId: TileTypeId, playerCount: number): TileData {
+  const config = getTileTypeConfig(typeId);
+  
+  const tile: TileData = {
+    id: `tile-${Math.floor(random() * 1000000)}`,
+    typeId
+  };
+  
+  // Add value for tiles that have it
+  if (config.hasValue && config.minValue !== undefined && config.maxValue !== undefined) {
+    tile.value = config.minValue + Math.floor(random() * (config.maxValue - config.minValue + 1));
+  }
+  
+  // Add owner for tiles that need it
+  if (config.hasOwner && playerCount > 0) {
+    tile.ownerId = Math.floor(random() * playerCount);
+  }
+  
+  // Add direction for movement tiles
+  if (config.hasDirection) {
+    tile.direction = random() > 0.5 ? 'right' : 'left' as MovementDirection;
+  }
+  
+  return tile;
+}
+
+// Generate tiles for the entire board using shuffle bag
+// Returns null for slots that should be left empty (unfilled)
+function generateBoardTiles(random: () => number, tileCount: number, playerCount: number, emptyTileAmount: EmptyTileAmount): (TileData | null)[] {
+  // Handle "all empty" case - no tiles at all
+  if (emptyTileAmount === 'all') {
+    return Array(tileCount).fill(null);
+  }
+  
+  const bag = createShuffleBag(random, tileCount);
+  
+  // Calculate how many slots should be empty
+  const emptyCount = Math.round(tileCount * EMPTY_SLOT_RATIOS[emptyTileAmount]);
+  const filledCount = tileCount - emptyCount;
+  
+  // Create array with tiles and nulls (for empty slots)
+  const result: (TileData | null)[] = [];
+  
+  // Add tiles for filled slots
+  for (let i = 0; i < filledCount; i++) {
+    result.push(generateTileFromType(random, bag[i], playerCount));
+  }
+  
+  // Add nulls for empty slots
+  for (let i = 0; i < emptyCount; i++) {
+    result.push(null);
+  }
+  
+  // Shuffle the result to distribute empty slots randomly
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  
+  return result;
+}
 
 const SVG_SIZE = 900;
 const CENTER = SVG_SIZE / 2;
@@ -165,9 +302,16 @@ export function Board() {
     return points;
   });
 
-  // Undo/Redo system
-  const [undoStack, setUndoStack] = useState<SavedGameState[]>([]);
-  const [redoStack, setRedoStack] = useState<SavedGameState[]>([]);
+  // Action-level Undo/Redo system (for individual actions like rotate, place tile)
+  const [actionUndoStack, setActionUndoStack] = useState<SavedGameState[]>([]);
+  const [actionRedoStack, setActionRedoStack] = useState<SavedGameState[]>([]);
+  
+  // Turn-level Undo/Redo system (snapshots at start of each turn)
+  // currentTurnStartState = state at the start of the current turn (for "Restart Turn")
+  // turnUndoStack = states at start of previous turns (for "Prev Turn")
+  const [currentTurnStartState, setCurrentTurnStartState] = useState<SavedGameState | null>(null);
+  const [turnUndoStack, setTurnUndoStack] = useState<SavedGameState[]>([]);
+  const [turnRedoStack, setTurnRedoStack] = useState<SavedGameState[]>([]);
 
   const currentPlayer = players[currentPlayerIndex] || players[0];
 
@@ -236,13 +380,23 @@ export function Board() {
       version: 1,
       gamePhase,
       playerCount: players.length,
+      slotCount,
       slots,
       currentPlayerIndex,
       playerResources,
       playerVictoryPoints,
       playerRotationPoints
     };
-  }, [gamePhase, players.length, slots, currentPlayerIndex, playerResources, playerVictoryPoints, playerRotationPoints]);
+  }, [gamePhase, players.length, slotCount, slots, currentPlayerIndex, playerResources, playerVictoryPoints, playerRotationPoints]);
+
+  // Save current state to action undo stack before an action
+  const saveToActionUndoStack = useCallback(() => {
+    const state = getCurrentState();
+    if (state) {
+      setActionUndoStack(stack => [...stack, state]);
+      setActionRedoStack([]); // Clear redo stack when new action is taken
+    }
+  }, [getCurrentState]);
 
   // Save state whenever it changes
   useEffect(() => {
@@ -250,6 +404,7 @@ export function Board() {
       version: 1,
       gamePhase,
       playerCount: players.length,
+      slotCount,
       slots,
       currentPlayerIndex,
       playerResources,
@@ -262,24 +417,41 @@ export function Board() {
     } else {
       clearGameState();
     }
-  }, [gamePhase, players.length, slots, currentPlayerIndex, playerResources, playerVictoryPoints, playerRotationPoints]);
+  }, [gamePhase, players.length, slotCount, slots, currentPlayerIndex, playerResources, playerVictoryPoints, playerRotationPoints]);
 
-  const handleStartGame = useCallback((playerCount: number, fillWithBlanks: boolean = false, tileCount: number = 16) => {
+  const handleStartGame = useCallback((
+    playerCount: number, 
+    fillWithBlanks: boolean = false, 
+    tileCount: number = 16,
+    randomFill?: { enabled: boolean; seed: string; emptyTileAmount: EmptyTileAmount }
+  ) => {
     setSlotCount(tileCount);
     const newPlayers = createPlayers(playerCount, tileCount);
     setPlayers(newPlayers);
     
-    // Create initial slots, optionally filled with blank tiles
+    // Create initial slots, optionally filled with blank or random tiles
     let initialSlots = createInitialSlots(tileCount);
-    if (fillWithBlanks) {
+    if (randomFill?.enabled && randomFill.seed) {
+      const random = createSeededRandom(randomFill.seed);
+      const tiles = generateBoardTiles(random, tileCount, playerCount, randomFill.emptyTileAmount);
+      initialSlots = initialSlots.map((slot, index) => {
+        const tile = tiles[index];
+        // If tile is null, leave slot empty (unfilled)
+        if (tile === null) {
+          return { ...slot, filled: false };
+        }
+        return { ...slot, filled: true, tile };
+      });
+    } else if (fillWithBlanks) {
       initialSlots = initialSlots.map(slot => ({
         ...slot,
         filled: true,
-        tile: { typeId: 'blank' }
+        tile: { id: `blank-${slot.id}`, typeId: 'blank' }
       }));
     }
     setSlots(initialSlots);
     setSelectedTile(null);
+    setSelectedGroup(null);
     setCurrentPlayerIndex(0);
     setHasRotatedThisTurn(false);
     setHasPlacedTileThisTurn(false);
@@ -297,6 +469,26 @@ export function Board() {
     setPlayerVictoryPoints(initialVictoryPoints);
     setPlayerRotationPoints(initialRotationPoints);
     
+    // Clear undo stacks for new game
+    setActionUndoStack([]);
+    setActionRedoStack([]);
+    setTurnUndoStack([]); // No previous turns yet
+    setTurnRedoStack([]);
+    
+    // Save initial turn state as current turn start (we know all the values since we just set them)
+    const initialTurnState: SavedGameState = {
+      version: 1,
+      gamePhase: 'playing',
+      playerCount,
+      slotCount: tileCount,
+      slots: initialSlots,
+      currentPlayerIndex: 0,
+      playerResources: initialResources,
+      playerVictoryPoints: initialVictoryPoints,
+      playerRotationPoints: initialRotationPoints
+    };
+    setCurrentTurnStartState(initialTurnState);
+    
     setGamePhase('playing');
   }, []);
 
@@ -304,6 +496,7 @@ export function Board() {
     setGamePhase('setup');
     setPlayers([]);
     setSelectedTile(null);
+    setSelectedGroup(null);
     setCurrentPlayerIndex(0);
     setHasRotatedThisTurn(false);
     setHasPlacedTileThisTurn(false);
@@ -334,6 +527,9 @@ export function Board() {
   const handleSlotClick = useCallback((slotIndex: number) => {
     if (!selectedTile) return;
     
+    // Save state before placing tile
+    saveToActionUndoStack();
+    
     setSlots(currentSlots => {
       const newSlots = [...currentSlots];
       newSlots[slotIndex] = {
@@ -344,25 +540,15 @@ export function Board() {
       return newSlots;
     });
     setSelectedTile(null);
-  }, [selectedTile]);
-
-  // Calculate which slot a player is aligned with after rotation
-  const getPlayerEffectiveSlot = useCallback((player: Player, rotation: number): number => {
-    const slotAngle = 360 / slotCount;
-    // When board rotates clockwise, tiles move clockwise, so players effectively move counter-clockwise
-    const rotationSlots = rotation / slotAngle;
-    const effectiveSlot = (player.slotIndex - Math.round(rotationSlots) + slotCount) % slotCount;
-    return effectiveSlot;
-  }, [slotCount]);
+    setHasPlacedTileThisTurn(true);
+  }, [selectedTile, saveToActionUndoStack]);
 
   // Trigger tile effects for players on tiles
-  const triggerTileEffects = useCallback((currentSlots: TileSlotType[], useRotationOffset?: number) => {
+  const triggerTileEffects = useCallback((currentSlots: TileSlotType[]) => {
     players.forEach(player => {
-      // If rotation offset is provided, use it to calculate effective slot (for full board rotation)
-      // Otherwise, check the player's actual slot position directly (for group movement)
-      const slotIndex = useRotationOffset !== undefined 
-        ? getPlayerEffectiveSlot(player, useRotationOffset)
-        : player.slotIndex;
+      // Players stay at the same visual position (slotIndex), so we check what tile
+      // is currently at that slot position after tiles have moved
+      const slotIndex = player.slotIndex;
       const slot = currentSlots[slotIndex];
       
       if (slot?.filled && slot.tile) {
@@ -452,7 +638,7 @@ export function Board() {
         }
       }
     });
-  }, [players, playerResources, getPlayerEffectiveSlot, slotCount]);
+  }, [players, playerResources, slotCount]);
 
   // Find all slots connected to a given slot (adjacent filled slots)
   const findConnectedGroup = useCallback((startSlotIndex: number, currentSlots: TileSlotType[]): Set<number> => {
@@ -578,17 +764,29 @@ export function Board() {
     // Update rotation offset for display
     setRotationOffset(newRotationOffset);
     
-    // If all slots are filled, just trigger effects (whole board rotates together)
+    // If all slots are filled, move all tiles together (no collision logic needed)
     if (areAllSlotsFilled(currentSlots)) {
-      triggerTileEffects(currentSlots, newRotationOffset);
-      // Update selected group to new positions
+      const result = applyGroupMove(new Set(Array.from({ length: slotCount }, (_, i) => i)), direction, amount, currentSlots);
+      setSlots(result.newSlots);
+      
+      // Update selected group to new positions, then expand to full connected group
       const step = direction === 'clockwise' ? amount : -amount;
       const newSelectedGroup = new Set<number>();
       group.forEach(oldIndex => {
         const newIndex = ((oldIndex + step) % slotCount + slotCount) % slotCount;
         newSelectedGroup.add(newIndex);
       });
-      setSelectedGroup(newSelectedGroup);
+      
+      // Expand selection to include any tiles now touching the group
+      const anyIndex = newSelectedGroup.values().next().value;
+      if (anyIndex !== undefined) {
+        const fullConnectedGroup = findConnectedGroup(anyIndex, result.newSlots);
+        setSelectedGroup(fullConnectedGroup);
+      } else {
+        setSelectedGroup(newSelectedGroup);
+      }
+      
+      triggerTileEffects(result.newSlots);
       return;
     }
 
@@ -649,7 +847,17 @@ export function Board() {
     }
 
     setSlots(workingSlots);
-    setSelectedGroup(currentGroup);
+    
+    // After movement, expand selection to include any tiles now touching the group
+    // Pick any index from the current group and find all connected tiles
+    const anyIndex = currentGroup.values().next().value;
+    if (anyIndex !== undefined) {
+      const fullConnectedGroup = findConnectedGroup(anyIndex, workingSlots);
+      setSelectedGroup(fullConnectedGroup);
+    } else {
+      setSelectedGroup(currentGroup);
+    }
+    
     triggerTileEffects(workingSlots);
   }, [rotationOffset, findConnectedGroup, areAllSlotsFilled, triggerTileEffects, slotCount, getLeadingEdge, findDistanceToCollision, applyGroupMove]);
 
@@ -667,76 +875,154 @@ export function Board() {
   }, [selectedGroup, slots, moveGroup]);
 
   const handleRotate = useCallback((direction: RotationDirection, amount: number = 1) => {
+    // Save state before rotating
+    saveToActionUndoStack();
+    
     // If a group is selected, move that group
     if (selectedGroup) {
       handleMoveGroup(direction, amount);
+      setHasRotatedThisTurn(true);
       return;
     }
 
     // If all slots are filled, rotate entire board
     if (areAllSlotsFilled(slots)) {
-      const slotAngle = 360 / slotCount;
-      const delta = direction === 'clockwise' ? slotAngle * amount : -slotAngle * amount;
-      const newRotationOffset = rotationOffset + delta;
-      
-      setRotationOffset(newRotationOffset);
-      triggerTileEffects(slots, newRotationOffset);
+      // Select all tiles and move them
+      const allTiles = new Set(Array.from({ length: slotCount }, (_, i) => i));
+      moveGroup(allTiles, direction, slots, amount);
+      setHasRotatedThisTurn(true);
       return;
     }
 
     // Otherwise, prompt to select a group first
     // (This will be handled by UI - rotation buttons disabled if no group selected)
-  }, [selectedGroup, rotationOffset, slots, areAllSlotsFilled, triggerTileEffects, handleMoveGroup, slotCount]);
-
-  // Save current state to undo stack before turn starts
-  const saveToUndoStack = useCallback(() => {
-    const state = getCurrentState();
-    if (state) {
-      setUndoStack(stack => [...stack, state]);
-      setRedoStack([]); // Clear redo stack when new action is taken
-    }
-  }, [getCurrentState]);
+  }, [selectedGroup, slots, areAllSlotsFilled, handleMoveGroup, slotCount, moveGroup, saveToActionUndoStack]);
 
   const handleEndTurn = useCallback(() => {
-    // Save state before ending turn
-    saveToUndoStack();
+    // Push current turn's start state to the history stack
+    if (currentTurnStartState) {
+      setTurnUndoStack(stack => [...stack, currentTurnStartState]);
+    }
     
-    setCurrentPlayerIndex(current => (current + 1) % players.length);
+    // Calculate next player
+    const nextPlayerIndex = (currentPlayerIndex + 1) % players.length;
+    
+    // Create the new turn's start state (with all current game state but new player)
+    const newTurnStartState: SavedGameState = {
+      version: 1,
+      gamePhase: 'playing',
+      playerCount: players.length,
+      slotCount,
+      slots,
+      currentPlayerIndex: nextPlayerIndex,
+      playerResources,
+      playerVictoryPoints,
+      playerRotationPoints
+    };
+    setCurrentTurnStartState(newTurnStartState);
+    
+    // Switch to next player
+    setCurrentPlayerIndex(nextPlayerIndex);
     setHasRotatedThisTurn(false);
     setHasPlacedTileThisTurn(false);
     setSelectedTile(null);
     setSelectedGroup(null);
-  }, [players.length, saveToUndoStack]);
+    
+    // Clear action stack when turn ends (actions are per-turn)
+    setActionUndoStack([]);
+    setActionRedoStack([]);
+    
+    // Clear turn redo stack since we're progressing forward
+    setTurnRedoStack([]);
+  }, [players.length, currentPlayerIndex, currentTurnStartState, slotCount, slots, playerResources, playerVictoryPoints, playerRotationPoints]);
 
-  const handleUndo = useCallback(() => {
-    if (undoStack.length === 0) return;
+  // Action-level undo/redo
+  const handleActionUndo = useCallback(() => {
+    if (actionUndoStack.length === 0) return;
     
     const currentState = getCurrentState();
     if (currentState) {
-      setRedoStack(stack => [...stack, currentState]);
+      setActionRedoStack(stack => [...stack, currentState]);
     }
     
-    const previousState = undoStack[undoStack.length - 1];
-    setUndoStack(stack => stack.slice(0, -1));
+    const previousState = actionUndoStack[actionUndoStack.length - 1];
+    setActionUndoStack(stack => stack.slice(0, -1));
     
     // Restore previous state
     handleLoadSave(previousState);
-  }, [undoStack, getCurrentState, handleLoadSave]);
+  }, [actionUndoStack, getCurrentState, handleLoadSave]);
 
-  const handleRedo = useCallback(() => {
-    if (redoStack.length === 0) return;
+  const handleActionRedo = useCallback(() => {
+    if (actionRedoStack.length === 0) return;
     
     const currentState = getCurrentState();
     if (currentState) {
-      setUndoStack(stack => [...stack, currentState]);
+      setActionUndoStack(stack => [...stack, currentState]);
     }
     
-    const nextState = redoStack[redoStack.length - 1];
-    setRedoStack(stack => stack.slice(0, -1));
+    const nextState = actionRedoStack[actionRedoStack.length - 1];
+    setActionRedoStack(stack => stack.slice(0, -1));
     
     // Restore next state
     handleLoadSave(nextState);
-  }, [redoStack, getCurrentState, handleLoadSave]);
+  }, [actionRedoStack, getCurrentState, handleLoadSave]);
+
+  // Determine what the turn undo button should do
+  const hasActionsTaken = actionUndoStack.length > 0;
+  const hasPreviousTurns = turnUndoStack.length > 0;
+  
+  // "Restart Turn" if player has done actions, otherwise "Prev Turn" if there are previous turns
+  const turnUndoMode: 'restart' | 'prev' | 'disabled' = 
+    hasActionsTaken ? 'restart' : 
+    hasPreviousTurns ? 'prev' : 
+    'disabled';
+
+  // Turn-level undo: either restart current turn or go to previous turn
+  const handleTurnUndo = useCallback(() => {
+    if (turnUndoMode === 'restart' && currentTurnStartState) {
+      // Restart current turn - restore to start of this turn
+      const currentState = getCurrentState();
+      if (currentState) {
+        setTurnRedoStack(stack => [...stack, currentState]);
+      }
+      
+      handleLoadSave(currentTurnStartState);
+      setActionUndoStack([]);
+      setActionRedoStack([]);
+    } else if (turnUndoMode === 'prev' && turnUndoStack.length > 0) {
+      // Go to previous turn
+      const currentState = getCurrentState();
+      if (currentState) {
+        setTurnRedoStack(stack => [...stack, currentState]);
+      }
+      
+      const previousTurnState = turnUndoStack[turnUndoStack.length - 1];
+      setTurnUndoStack(stack => stack.slice(0, -1));
+      setCurrentTurnStartState(previousTurnState);
+      
+      handleLoadSave(previousTurnState);
+      setActionUndoStack([]);
+      setActionRedoStack([]);
+    }
+  }, [turnUndoMode, currentTurnStartState, turnUndoStack, getCurrentState, handleLoadSave]);
+
+  const handleTurnRedo = useCallback(() => {
+    if (turnRedoStack.length === 0) return;
+    
+    // Push current turn start to undo stack before moving forward
+    if (currentTurnStartState) {
+      setTurnUndoStack(stack => [...stack, currentTurnStartState]);
+    }
+    
+    const nextState = turnRedoStack[turnRedoStack.length - 1];
+    setTurnRedoStack(stack => stack.slice(0, -1));
+    setCurrentTurnStartState(nextState);
+    
+    // Restore next state and clear action stacks
+    handleLoadSave(nextState);
+    setActionUndoStack([]);
+    setActionRedoStack([]);
+  }, [turnRedoStack, currentTurnStartState, handleLoadSave]);
 
   const handleAction = useCallback((actionType: string) => {
     switch (actionType) {
@@ -881,9 +1167,9 @@ export function Board() {
         <div className="info-panel">
           <h4>Game Info</h4>
           <div className="info-stats">
+            <p>Turn: {turnUndoStack.length + 1}</p>
             <p>Players: {players.length}</p>
             <p>Tiles: {slots.filter(s => s.filled).length} / {slotCount}</p>
-            <p>Rotation: {rotationOffset}°</p>
           </div>
           <button className="new-game-btn" onClick={handleNewGame}>
             New Game
@@ -896,10 +1182,14 @@ export function Board() {
         />
 
         <DevControls
-          onUndo={handleUndo}
-          onRedo={handleRedo}
-          canUndo={undoStack.length > 0}
-          canRedo={redoStack.length > 0}
+          onActionUndo={handleActionUndo}
+          onActionRedo={handleActionRedo}
+          canActionUndo={actionUndoStack.length > 0}
+          canActionRedo={actionRedoStack.length > 0}
+          onTurnUndo={handleTurnUndo}
+          onTurnRedo={handleTurnRedo}
+          turnUndoMode={turnUndoMode}
+          canTurnRedo={turnRedoStack.length > 0}
         />
       </div>
     </div>

@@ -379,6 +379,15 @@ The following mechanics have been clarified through design discussion:
 
 ---
 
+## Notes
+
+### January 22, 2026
+
+- Trying to calculate where your opponents will end up when moving the board is tricky, especially with many opponents and when making large movements
+- If we keep movement tiles then players need to have some way to move on their own, else all players will eventually get swept up and end up in the same position, unable to get away
+
+---
+
 ## Next Steps
 
 1. Resolve all "TO BE DETERMINED" items in Unresolved Design Questions section
